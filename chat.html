@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -462,50 +461,71 @@
         d.innerHTML = `<div class="divider-line"></div><div class="divider-text">${text}</div><div class="divider-line"></div>`;
         msgs.appendChild(d);
     }
+
     function formatAnswer(text) {
+    // Clean up the text first
+    text = text.trim();
+
+    // Detect grade-level notice period pattern and reformat
+    text = text.replace(
+        /M0([^.]+)\.\s*M1([^.]+)\.\s*M1-M5([^.]+)\./g,
+        function(match, m0, m1, m15) {
+            return `\nM0${m0}.\nM1${m1}.\nM1-M5${m15}.`;
+        }
+    );
+
     // Split into lines
-    let lines = text.split(/\n/).map(l => l.trim()).filter(l => l);
-    
-    if (lines.length === 1) {
-        // Single line — check for patterns like "M0: ..., M1: ..."
-        // Split on grade level patterns
-        text = text
-            .replace(/(M[0-9][-\w\s\/,\.]+?:)/g, '\n$1')
-            .replace(/(During probation|On confirmation|after confirmation)/gi, '\n• $1')
-        lines = text.split(/\n/).map(l => l.trim()).filter(l => l);
-    }
+    let lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
 
     if (lines.length <= 1) {
-        return `<p>${text}</p>`;
+        return `<span>${text}</span>`;
     }
 
     let html = '';
-    let inList = false;
+    let listItems = [];
+
+    const isGradeLine = (l) => /^M[0-9]|^Grade Level|^During probation|^Trainees/i.test(l);
+    const isFirstLine = (i) => i === 0;
 
     lines.forEach((line, i) => {
-        const isHeader = i === 0 && !line.match(/^[•\-\*]/) && line.endsWith('.');
-        const isGrade = line.match(/^M[0-9]|^Grade|^During|^On confirm/i);
-        const isBullet = line.match(/^[•\-\*]/);
-
-        if (isHeader) {
-            if (inList) { html += '</ul>'; inList = false; }
-            html += `<p style="margin-bottom:8px;font-weight:500;">${line}</p>`;
-        } else if (isGrade || isBullet) {
-            if (!inList) { html += '<ul style="padding-left:0;list-style:none;display:flex;flex-direction:column;gap:5px;">'; inList = true; }
-            const clean = line.replace(/^[•\-\*]\s*/, '');
-            html += `<li style="display:flex;gap:8px;align-items:flex-start;">
-                <span style="color:#204385;font-weight:700;flex-shrink:0;">•</span>
-                <span>${clean}</span>
-            </li>`;
+        if (isFirstLine(i) && !isGradeLine(line)) {
+            html += `<p style="margin-bottom:10px;font-weight:500;color:#344054;">${line}</p>`;
+        } else if (isGradeLine(line) || lines.length > 1) {
+            listItems.push(line);
         } else {
-            if (inList) { html += '</ul>'; inList = false; }
             html += `<p style="margin-bottom:6px;">${line}</p>`;
         }
     });
 
-    if (inList) html += '</ul>';
+    if (listItems.length > 0) {
+        html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+        listItems.forEach(item => {
+            // Split on colon to highlight the grade label
+            const colonIdx = item.indexOf(':');
+            if (colonIdx > -1 && colonIdx < 30) {
+                const label = item.substring(0, colonIdx).trim();
+                const value = item.substring(colonIdx + 1).trim();
+                html += `
+                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:#EFF4FF;border-radius:10px;border-left:3px solid #204385;">
+                    <div>
+                        <div style="font-weight:600;font-size:13px;color:#204385;">${label}</div>
+                        <div style="font-size:14px;color:#344054;margin-top:2px;">${value}</div>
+                    </div>
+                </div>`;
+            } else {
+                html += `
+                <div style="display:flex;gap:8px;align-items:flex-start;">
+                    <span style="color:#204385;font-weight:700;margin-top:2px;flex-shrink:0;">•</span>
+                    <span style="color:#344054;">${item}</span>
+                </div>`;
+            }
+        });
+        html += '</div>';
+    }
+
     return html;
 }
+
     function addMsg(text, who, isError = false) {
         const row = document.createElement('div');
         row.className = `row ${who}`;
