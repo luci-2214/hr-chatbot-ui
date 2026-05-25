@@ -462,14 +462,57 @@
         d.innerHTML = `<div class="divider-line"></div><div class="divider-text">${text}</div><div class="divider-line"></div>`;
         msgs.appendChild(d);
     }
+    function formatAnswer(text) {
+    // Split into lines
+    let lines = text.split(/\n/).map(l => l.trim()).filter(l => l);
+    
+    if (lines.length === 1) {
+        // Single line — check for patterns like "M0: ..., M1: ..."
+        // Split on grade level patterns
+        text = text
+            .replace(/(M[0-9][-\w\s\/,\.]+?:)/g, '\n$1')
+            .replace(/(During probation|On confirmation|after confirmation)/gi, '\n• $1')
+        lines = text.split(/\n/).map(l => l.trim()).filter(l => l);
+    }
 
+    if (lines.length <= 1) {
+        return `<p>${text}</p>`;
+    }
+
+    let html = '';
+    let inList = false;
+
+    lines.forEach((line, i) => {
+        const isHeader = i === 0 && !line.match(/^[•\-\*]/) && line.endsWith('.');
+        const isGrade = line.match(/^M[0-9]|^Grade|^During|^On confirm/i);
+        const isBullet = line.match(/^[•\-\*]/);
+
+        if (isHeader) {
+            if (inList) { html += '</ul>'; inList = false; }
+            html += `<p style="margin-bottom:8px;font-weight:500;">${line}</p>`;
+        } else if (isGrade || isBullet) {
+            if (!inList) { html += '<ul style="padding-left:0;list-style:none;display:flex;flex-direction:column;gap:5px;">'; inList = true; }
+            const clean = line.replace(/^[•\-\*]\s*/, '');
+            html += `<li style="display:flex;gap:8px;align-items:flex-start;">
+                <span style="color:#204385;font-weight:700;flex-shrink:0;">•</span>
+                <span>${clean}</span>
+            </li>`;
+        } else {
+            if (inList) { html += '</ul>'; inList = false; }
+            html += `<p style="margin-bottom:6px;">${line}</p>`;
+        }
+    });
+
+    if (inList) html += '</ul>';
+    return html;
+}
     function addMsg(text, who, isError = false) {
         const row = document.createElement('div');
         row.className = `row ${who}`;
 
         const bubble = `
             <div class="bubble ${who} ${isError ? 'error' : ''}">
-                ${text.replace(/\n/g, '<br>')}
+                ${formatAnswer(text)}
                 <div class="ts ${who}">${time()}</div>
             </div>
         `;
