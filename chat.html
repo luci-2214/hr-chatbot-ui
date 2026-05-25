@@ -463,18 +463,56 @@
     }
 
     function formatAnswer(text) {
-    // Clean up the text first
     text = text.trim();
 
-    // Detect grade-level notice period pattern and reformat
-    text = text.replace(
-        /M0([^.]+)\.\s*M1([^.]+)\.\s*M1-M5([^.]+)\./g,
-        function(match, m0, m1, m15) {
-            return `\nM0${m0}.\nM1${m1}.\nM1-M5${m15}.`;
-        }
-    );
+    // Pattern 1 — Notice period: split on grade patterns
+    if (text.match(/M0|M1|M1-M5|grade level/i)) {
+        text = text
+            .replace(/\.\s*(M0)/g, '.\n$1')
+            .replace(/\.\s*(M1 Executive)/g, '.\n$1')
+            .replace(/\.\s*(M1-M5)/g, '.\n$1');
+    }
 
-    // Split into lines
+    // Pattern 2 — CL rules: split on key conjunctions
+    if (text.match(/Casual|CL|sick leave/i)) {
+        text = text
+            .replace(/\.\s*(An employee can)/g, '.\n$1')
+            .replace(/\.\s*(CL cannot)/g, '.\n$1')
+            .replace(/\.\s*(Lapse|lapses)/gi, '.\n$1');
+    }
+
+    // Pattern 3 — Maternity/Paternity: split on key points
+    if (text.match(/maternity|paternity|26 weeks|5 days/i)) {
+        text = text
+            .replace(/\.\s*(Female employees)/g, '.\n$1')
+            .replace(/\.\s*(It can be)/g, '.\n$1')
+            .replace(/\.\s*(Employees are entitled)/g, '.\n$1');
+    }
+
+    // Pattern 4 — WFH policy
+    if (text.match(/WFH|work from home|12 working days/i)) {
+        text = text
+            .replace(/\.\s*(The remaining)/g, '.\n$1')
+            .replace(/\.\s*(WFH requests)/g, '.\n$1')
+            .replace(/\.\s*(Employees must be)/g, '.\n$1');
+    }
+
+    // Pattern 5 — Salary
+    if (text.match(/salary|payroll|credited/i)) {
+        text = text
+            .replace(/\.\s*(As a practice)/g, '.\n$1')
+            .replace(/\.\s*(The salary is)/g, '.\n$1');
+    }
+
+    // Pattern 6 — Attendance
+    if (text.match(/full working day|half day|11 AM/i)) {
+        text = text
+            .replace(/\.\s*(They must be)/g, '.\n$1')
+            .replace(/\.\s*(Employees reaching)/g, '.\n$1')
+            .replace(/\.\s*(A minimum)/g, '.\n$1');
+    }
+
+    // Now split into lines and render
     let lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
 
     if (lines.length <= 1) {
@@ -482,46 +520,34 @@
     }
 
     let html = '';
-    let listItems = [];
-
-    const isGradeLine = (l) => /^M[0-9]|^Grade Level|^During probation|^Trainees/i.test(l);
-    const isFirstLine = (i) => i === 0;
 
     lines.forEach((line, i) => {
-        if (isFirstLine(i) && !isGradeLine(line)) {
-            html += `<p style="margin-bottom:10px;font-weight:500;color:#344054;">${line}</p>`;
-        } else if (isGradeLine(line) || lines.length > 1) {
-            listItems.push(line);
-        } else {
-            html += `<p style="margin-bottom:6px;">${line}</p>`;
-        }
-    });
+        const isGrade = /^M[0-9]/.test(line);
+        const isFirst = i === 0;
 
-    if (listItems.length > 0) {
-        html += '<div style="display:flex;flex-direction:column;gap:8px;">';
-        listItems.forEach(item => {
-            // Split on colon to highlight the grade label
-            const colonIdx = item.indexOf(':');
-            if (colonIdx > -1 && colonIdx < 30) {
-                const label = item.substring(0, colonIdx).trim();
-                const value = item.substring(colonIdx + 1).trim();
+        if (isFirst) {
+            html += `<p style="margin-bottom:10px;font-weight:500;color:#344054;">${line}</p>`;
+        } else if (isGrade) {
+            const colonIdx = line.indexOf(':');
+            if (colonIdx > -1) {
+                const label = line.substring(0, colonIdx).trim();
+                const value = line.substring(colonIdx + 1).trim();
                 html += `
-                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:#EFF4FF;border-radius:10px;border-left:3px solid #204385;">
+                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:#EFF4FF;border-radius:10px;border-left:3px solid #204385;margin-bottom:6px;">
                     <div>
                         <div style="font-weight:600;font-size:13px;color:#204385;">${label}</div>
                         <div style="font-size:14px;color:#344054;margin-top:2px;">${value}</div>
                     </div>
                 </div>`;
-            } else {
-                html += `
-                <div style="display:flex;gap:8px;align-items:flex-start;">
-                    <span style="color:#204385;font-weight:700;margin-top:2px;flex-shrink:0;">•</span>
-                    <span style="color:#344054;">${item}</span>
-                </div>`;
             }
-        });
-        html += '</div>';
-    }
+        } else {
+            html += `
+            <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:5px;">
+                <span style="color:#204385;font-weight:700;flex-shrink:0;margin-top:1px;">•</span>
+                <span style="color:#344054;font-size:14px;">${line}</span>
+            </div>`;
+        }
+    });
 
     return html;
 }
